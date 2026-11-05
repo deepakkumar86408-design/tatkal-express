@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="hi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwiftRail - High Speed Tatkal & Train Booking Assistant</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                            accent: '#22c55e',
+                            fast: '#ef4444'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Smooth Scrollbar and Animations */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #0284c7;
+            border-radius: 3px;
+        }
+        .pulse-fast {
+            animation: pulse 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans min-h-screen flex flex-col transition-colors duration-200">
+
+    <!-- Top Header / Navigation -->
+    <header class="sticky top-0 z-50 bg-gray-900/90 backdrop-blur-md border-b border-gray-800 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-accent flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-brand-500/20">
+                    <i class="fa-solid => fa-bolt"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">
+                        SwiftRail Express
+                    </h1>
+                    <p class="text-xs text-gray-400 flex items-center gap-1">
+                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                        <span id="speedIndicatorText">Ultra-Fast Tatkal Engine (0.12s latency)</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Controls & Mode Toggles -->
+            <div class="flex items-center gap-3">
+                <!-- Language Selector -->
+                <button id="langToggleBtn" onclick="toggleLanguage()" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs font-medium border border-gray-700 flex items-center gap-2">
+                    <i class="fa-solid fa-language text-brand-500"></i>
+                    <span id="currentLangLabel">हिंदी</span>
+                </button>
+
+                <!-- Tatkal Countdown Badge -->
+                <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-950/40 border border-red-800/50 text-red-400 text-xs font-semibold">
+                    <i class="fa-solid fa-clock pulse-fast"></i>
+                    <span id="tatkalTimerText">Tatkal Window: AC (10:00 AM) | Non-AC (11:00 AM)</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Column: Primary Actions & Tabs (8 cols) -->
+        <section class="lg:col-span-8 flex flex-col gap-6">
+
+            <!-- App Features Selector Nav Bar -->
+            <div class="flex bg-gray-800/80 p-1.5 rounded-2xl border border-gray-700/60 shadow-inner overflow-x-auto gap-1">
+                <button onclick="switchTab('search')" id="tab-btn-search" class="tab-btn active-tab flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 bg-brand-600 text-white shadow-md">
+                    <i class="fa-solid fa-magnifying-glass"></i> <span data-key="searchTrains">ट्रेन खोजें</span>
+                </button>
+                <button onclick="switchTab('masterlist')" id="tab-btn-masterlist" class="tab-btn flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 text-gray-400 hover:text-white hover:bg-gray-700/50">
+                    <i class="fa-solid fa-users"></i> <span data-key="masterList">मास्टर लिस्ट (Auto-Fill)</span>
+                </button>
+                <button onclick="switchTab('splitroute')" id="tab-btn-splitroute" class="tab-btn flex-1 min-w-[120px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 text-gray-400 hover:text-white hover:bg-gray-700/50">
+                    <i class="fa-solid fa-code-fork"></i> <span data-key="splitRoute">स्मार्ट अल्टरनेट रूट</span>
+                </button>
+            </div>
+
+            <!-- TAB 1: TRAIN SEARCH & LIVE SEAT STATUS -->
+            <div id="tab-search" class="tab-content flex flex-col gap-6">
+                <!-- Search Box Card -->
+                <div class="bg-gray-800/60 border border-gray-700/80 rounded-2xl p-5 shadow-xl relative overflow-hidden backdrop-blur-sm">
+                    <div class="absolute -right-10 -bottom-10 w-36 h-36 bg-brand-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+                        <!-- From Station -->
+                        <div class="sm:col-span-5 flex flex-col gap-1.5">
+                            <label class="text-xs font-semibold text-gray-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-train-departure text-brand-500"></i>
+                                <span data-key="fromStation">कहाँ से (From)</span>
+                            </label>
+                            <select id="fromStation" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                <option value="NDLS">New Delhi (NDLS)</option>
+                                <option value="CNB">Kanpur Central (CNB)</option>
+                                <option value="PRYJ">Prayagraj Junction (PRYJ)</option>
+                                <option value="ANVT">Anand Vihar Terminal (ANVT)</option>
+                            </select>
+                        </div>
+
+                        <!-- Swap Button -->
+                        <div class="sm:col-span-2 flex justify-center py-1">
+                            <button onclick="swapStations()" class="w-10 h-10 rounded-full bg-gray-700 hover:bg-brand-600 border border-gray-600 text-gray-300 hover:text-white transition-all flex items-center justify-center shadow-lg active:scale-95">
+                                <i class="fa-solid fa-right-left"></i>
+                            </button>
+                        </div>
+
+                        <!-- To Station -->
+                        <div class="sm:col-span-5 flex flex-col gap-1.5">
+                            <label class="text-xs font-semibold text-gray-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-train-arrival text-emerald-400"></i>
+                                <span data-key="toStation">कहाँ तक (To)</span>
+                            </label>
+                            <select id="toStation" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                <option value="PRYJ">Prayagraj Junction (PRYJ)</option>
+                                <option value="CNB">Kanpur Central (CNB)</option>
+                                <option value="NDLS">New Delhi (NDLS)</option>
+                                <option value="VNS">Varanasi Junction (VNS)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Quota & Date Options -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-400 block mb-1.5" data-key="journeyDate">यात्रा तिथि (Date)</label>
+                            <input type="date" id="journeyDate" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-400 block mb-1.5" data-key="quota">कोटा (Quota)</label>
+                            <select id="quotaSelect" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2 text-sm font-semibold text-amber-400 focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                                <option value="TATKAL">🔥 TATKAL (तत्काल)</option>
+                                <option value="GN">GENERAL (सामान्य)</option>
+                                <option value="PT">PREMIUM TATKAL</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="performSearch()" class="w-full bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-600 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg shadow-brand-500/30 flex items-center justify-center gap-2 transition-all active:scale-98">
+                                <i class="fa-solid fa-bolt text-amber-300"></i>
+                                <span data-key="searchFast">सुपर-फास्ट सर्च</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Filters -->
+                <div class="flex items-center justify-between px-1">
+                    <span class="text-xs text-gray-400 font-semibold">Seat Availability Filter:</span>
+                    <div class="flex gap-2">
+                        <button onclick="filterTrains('ALL')" class="text-[11px] px-2.5 py-1 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700">सभी (All)</button>
+                        <button onclick="filterTrains('CONFIRMED')" class="text-[11px] px-2.5 py-1 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-800 font-semibold">100% Confirm Only</button>
+                    </div>
+                </div>
+
+                <!-- Train Results List -->
+                <div class="flex flex-col gap-4" id="trainResultsList">
+                    <!-- Cards populated via JS -->
+                </div>
+            </div>
+
+            <!-- TAB 2: MASTER LIST MANAGER -->
+            <div id="tab-masterlist" class="tab-content hidden flex flex-col gap-6">
+                <div class="bg-gray-800/60 border border-gray-700/80 rounded-2xl p-5 shadow-xl">
+                    <div class="flex items-center justify-between mb-4 border-b border-gray-700 pb-3">
+                        <div>
+                            <h3 class="font-bold text-lg text-emerald-400 flex items-center gap-2">
+                                <i class="fa-solid fa-bolt text-amber-400"></i>
+                                <span data-key="tatkalMasterListHeader">तत्काल ऑटो-फिल मास्टर लिस्ट</span>
+                            </h3>
+                            <p class="text-xs text-gray-400" data-key="masterListSubtext">यहाँ सेव की गई डिटेल्स बुक करते ही 0.05 सेकंड में भर जाएगी।</p>
+                        </div>
+                        <button onclick="openAddPassengerModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all shadow-md">
+                            <i class="fa-solid fa-plus"></i> <span data-key="addPassenger">नया पैसेंजर जोड़ें</span>
+                        </button>
+                    </div>
+
+                    <!-- Passenger Profiles Grid -->
+                    <div id="passengerListContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Loaded by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: SMART ALTERNATE ROUTE / SPLIT TICKET -->
+            <div id="tab-splitroute" class="tab-content hidden flex flex-col gap-6">
+                <div class="bg-gray-800/60 border border-gray-700/80 rounded-2xl p-5 shadow-xl">
+                    <div class="mb-4 border-b border-gray-700 pb-3">
+                        <h3 class="font-bold text-lg text-blue-400 flex items-center gap-2">
+                            <i class="fa-solid fa-route text-brand-500"></i>
+                            <span data-key="smartRouteHeader">AI अल्टरनेटिव रूट और स्प्लिट टिकट फाइंडर</span>
+                        </h3>
+                        <p class="text-xs text-gray-400" data-key="smartRouteSubtext">अगर सीधी ट्रेन में कंफर्म टिकट नहीं मिल रहा, तो यह AI टूल बीच के स्टेशन से 100% कंफर्म सीट ढूंढ निकालता है।</p>
+                    </div>
+
+                    <div class="flex flex-col gap-4" id="alternateRoutesContainer">
+                        <!-- Alternate route cards populated via JS -->
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Right Column: Speed Control Dashboard & Booking Stats (4 cols) -->
+        <section class="lg:col-span-4 flex flex-col gap-6">
+
+            <!-- Fast Tatkal Speed HUD Box -->
+            <div class="bg-gradient-to-b from-gray-800/90 to-gray-900 border border-brand-500/40 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+                <div class="flex items-center justify-between mb-3 border-b border-gray-800 pb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-stopwatch"></i> Speed Assistant Engine
+                    </span>
+                    <span class="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded-full font-mono">
+                        Status: Active
+                    </span>
+                </div>
+
+                <!-- Benchmarking metric gauges -->
+                <div class="space-y-3">
+                    <div>
+                        <div class="flex justify-between text-xs font-medium mb-1">
+                            <span class="text-gray-400">Auto-Fill Form Latency</span>
+                            <span class="text-emerald-400 font-mono font-bold">0.03s (Blazing)</span>
+                        </div>
+                        <div class="w-full bg-gray-900 rounded-full h-2 overflow-hidden border border-gray-800">
+                            <div class="bg-emerald-500 h-full rounded-full" style="width: 95%;"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-xs font-medium mb-1">
+                            <span class="text-gray-400">Captcha Bypass / Auto-Solve</span>
+                            <span class="text-brand-500 font-mono font-bold">Ready</span>
+                        </div>
+                        <div class="w-full bg-gray-900 rounded-full h-2 overflow-hidden border border-gray-800">
+                            <div class="bg-brand-500 h-full rounded-full" style="width: 88%;"></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-xs font-medium mb-1">
+                            <span class="text-gray-400">Instant Payment Trigger (UPI)</span>
+                            <span class="text-purple-400 font-mono font-bold">1-Click QR</span>
+                        </div>
+                        <div class="w-full bg-gray-900 rounded-full h-2 overflow-hidden border border-gray-800">
+                            <div class="bg-purple-500 h-full rounded-full" style="width: 92%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tatkal Pro Tip -->
+                <div class="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-start gap-2.5">
+                    <i class="fa-solid fa-lightbulb text-amber-400 text-sm mt-0.5"></i>
+                    <p data-key="tatkalTip">
+                        <strong>तत्काल टिप:</strong> सुबह 10:00 बजे AC और 11:00 बजे Non-AC टिकट खुलता है। अपनी मास्टर लिस्ट पहले से तैयार रखें!
+                    </p>
+                </div>
+            </div>
+
+            <!-- Quick Booking History & Stats Card -->
+            <div class="bg-gray-800/60 border border-gray-700/80 rounded-2xl p-5 shadow-xl flex flex-col gap-4">
+                <h4 class="font-bold text-sm text-gray-200 border-b border-gray-700 pb-2 flex items-center justify-between">
+                    <span data-key="recentSimulations">हाल के बुकिंग आंकड़े</span>
+                    <i class="fa-solid fa-chart-line text-brand-500"></i>
+                </h4>
+
+                <div class="grid grid-cols-2 gap-3 text-center">
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800">
+                        <div class="text-xl font-bold text-emerald-400 font-mono">94.8%</div>
+                        <div class="text-[11px] text-gray-400 mt-1" data-key="successRate">तत्काल सक्सेस रेट</div>
+                    </div>
+                    <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800">
+                        <div class="text-xl font-bold text-amber-400 font-mono">2.4 Sec</div>
+                        <div class="text-[11px] text-gray-400 mt-1" data-key="avgTime">औसत बुकिंग समय</div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900/50 p-3 rounded-xl border border-gray-800 flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-shield-halved text-emerald-400 text-base"></i>
+                        <div>
+                            <div class="font-semibold text-gray-300">IRCTC Direct Gateway</div>
+                            <div class="text-[10px] text-gray-500">256-Bit Encrypted</div>
+                        </div>
+                    </div>
+                    <span class="text-emerald-400 font-bold text-[10px] bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800">VERIFIED</span>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- FAST BOOKING SIMULATION MODAL -->
+    <div id="bookingModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-brand-500/50 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in duration-200">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full bg-red-500 pulse-fast"></span>
+                    <h3 class="font-bold text-lg text-white" id="modalTrainName">Vande Bharat Express (22436)</h3>
+                </div>
+                <button onclick="closeBookingModal()" class="text-gray-400 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Auto-Fill Speed Step Visualizer -->
+            <div class="flex flex-col gap-4">
+                <!-- Step 1: Passenger Selection -->
+                <div>
+                    <label class="text-xs text-gray-400 font-semibold mb-1 block" data-key="selectPassenger">मास्टर लिस्ट से पैसेंजर चुनें (Auto-Fill)</label>
+                    <select id="modalPassengerSelect" class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-amber-300 font-medium focus:ring-2 focus:ring-brand-500 focus:outline-none">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+
+                <!-- Speed Progress Indicator -->
+                <div id="speedProgressBox" class="hidden flex-col gap-2 p-3 bg-gray-800/80 rounded-xl border border-gray-700">
+                    <div class="flex justify-between text-xs font-mono">
+                        <span id="speedStatusText" class="text-amber-400">⚡ Initializing Auto-Fill Engines...</span>
+                        <span id="speedTimeCounter" class="text-emerald-400 font-bold">0.00s</span>
+                    </div>
+                    <div class="w-full bg-gray-900 rounded-full h-2.5 overflow-hidden">
+                        <div id="speedProgressBar" class="bg-gradient-to-r from-brand-500 to-emerald-400 h-full w-0 transition-all duration-300"></div>
+                    </div>
+                </div>
+
+                <!-- Payment Selection (Fast Auto-UPI) -->
+                <div id="paymentOptionsBox" class="bg-gray-800/50 p-3 rounded-xl border border-gray-700/60 flex flex-col gap-2">
+                    <label class="text-xs font-semibold text-gray-300">1-Click Instant Payment Mode:</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="cursor-pointer border border-brand-500 bg-brand-950/40 p-2 rounded-lg text-center flex flex-col items-center">
+                            <input type="radio" name="payMode" value="upi" checked class="hidden">
+                            <i class="fa-solid fa-qrcode text-brand-400 text-sm"></i>
+                            <span class="text-[10px] font-bold text-gray-200 mt-1">Auto-UPI QR</span>
+                        </label>
+                        <label class="cursor-pointer border border-gray-700 bg-gray-900 p-2 rounded-lg text-center flex flex-col items-center">
+                            <input type="radio" name="payMode" value="card" class="hidden">
+                            <i class="fa-solid fa-credit-card text-gray-400 text-sm"></i>
+                            <span class="text-[10px] font-bold text-gray-400 mt-1">Saved Card</span>
+                        </label>
+                        <label class="cursor-pointer border border-gray-700 bg-gray-900 p-2 rounded-lg text-center flex flex-col items-center">
+                            <input type="radio" name="payMode" value="netbanking" class="hidden">
+                            <i class="fa-solid fa-building-columns text-gray-400 text-sm"></i>
+                            <span class="text-[10px] font-bold text-gray-400 mt-1">NetBanking</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Simulation Output Terminal Logs -->
+                <div id="simulationTerminal" class="bg-black/90 p-3 rounded-xl border border-gray-800 font-mono text-xs text-emerald-400 h-28 overflow-y-auto space-y-1">
+                    <div class="text-gray-500">> System Ready. Click 'Start Fast Booking' to test ultra-speed checkout.</div>
+                </div>
+
+                <!-- Action Button -->
+                <button id="startBookingBtn" onclick="runBookingSimulation()" class="w-full bg-gradient-to-r from-red-600 via-brand-600 to-emerald-600 hover:opacity-90 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 text-base transition-all active:scale-98">
+                    <i class="fa-solid fa-bolt text-amber-300"></i>
+                    <span id="bookingBtnText" data-key="startInstantBooking">1-क्लिक सुपर-फास्ट बुकिंग (3s Test)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD PASSENGER MODAL -->
+    <div id="passengerModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-gray-900 border border-gray-700 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3 mb-4">
+                <h3 class="font-bold text-lg text-white" data-key="addNewPassengerTitle">नया मास्टर लिस्ट पैसेंजर</h3>
+                <button onclick="closeAddPassengerModal()" class="text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form onsubmit="saveNewPassenger(event)" class="space-y-4">
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">पूरा नाम (As per Govt ID)</label>
+                    <input type="text" id="pName" required placeholder="जैसे: अमित शर्मा" class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-400 block mb-1">उम्र (Age)</label>
+                        <input type="number" id="pAge" required placeholder="28" class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 block mb-1">लिंग (Gender)</label>
+                        <select id="pGender" class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="Male">पुरुष (Male)</option>
+                            <option value="Female">महिला (Female)</option>
+                            <option value="Other">अन्य (Other)</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs text-gray-400 block mb-1">बर्थ प्रेफरेंस (Berth Preference)</label>
+                    <select id="pBerth" class="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500">
+                        <option value="Lower">Lower Berth</option>
+                        <option value="Middle">Middle Berth</option>
+                        <option value="Upper">Upper Berth</option>
+                        <option value="Side Lower">Side Lower</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl shadow-lg mt-2">
+                    मास्टर लिस्ट में सेव करें
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Application Footer -->
+    <footer class="border-t border-gray-800 bg-gray-950 py-4 px-4 text-center text-xs text-gray-500">
+        <p>SwiftRail Concept Prototype • Designed for Extreme Speed & Auto-Fill Efficiency</p>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // State Management with LocalStorage Support
+        let currentLang = 'hi';
+        let savedPassengers = JSON.parse(localStorage.getItem('swiftrail_passengers')) || [
+            { id: 1, name: 'राहुल वर्मा', age: 32, gender: 'Male', berth: 'Lower', idNum: 'XXXX-4821' },
+            { id: 2, name: 'प्रिया शर्मा', age: 29, gender: 'Female', berth: 'Side Lower', idNum: 'XXXX-9910' }
+        ];
+
+        let trainData = [
+            {
+                number: "22436",
+                name: "VANDE BHARAT EXP",
+                depTime: "06:00 AM",
+                arrTime: "12:08 PM",
+                from: "NDLS",
+                to: "PRYJ",
+                duration: "6h 08m",
+                seats: {
+                    CC: { status: "AVAILABLE - 42", prob: "HIGH (100% Guaranteed)", color: "text-emerald-400", bg: "bg-emerald-950/60 border-emerald-800" },
+                    EC: { status: "WL 04", prob: "HIGH (88% Confirmation)", color: "text-amber-400", bg: "bg-amber-950/60 border-amber-800" }
+                }
+            },
+            {
+                number: "12424",
+                name: "DBRT RAJDHANI",
+                depTime: "04:10 PM",
+                arrTime: "10:55 PM",
+                from: "NDLS",
+                to: "CNB",
+                duration: "6h 45m",
+                seats: {
+                    "3A": { status: "AVAILABLE - 18", prob: "HIGH (100% Guaranteed)", color: "text-emerald-400", bg: "bg-emerald-950/60 border-emerald-800" },
+                    "2A": { status: "WL 12", prob: "MEDIUM (74% Chance)", color: "text-amber-400", bg: "bg-amber-950/60 border-amber-800" },
+                    "1A": { status: "WL 48", prob: "LOW (15% Chance)", color: "text-red-400", bg: "bg-red-950/60 border-red-800" }
+                }
+            },
+            {
+                number: "12310",
+                name: "RJPB TEJAS RAJ",
+                depTime: "05:15 PM",
+                arrTime: "11:53 PM",
+                from: "NDLS",
+                to: "PRYJ",
+                duration: "6h 38m",
+                seats: {
+                    "3A": { status: "TATKAL AVAILABLE - 08", prob: "HIGH (100% Guaranteed)", color: "text-emerald-400", bg: "bg-emerald-950/60 border-emerald-800" },
+                    "2A": { status: "WL 02", prob: "HIGH (92% Chance)", color: "text-emerald-400", bg: "bg-emerald-950/60 border-emerald-800" }
+                }
+            }
+        ];
+
+        let alternateRoutes = [
+            {
+                title: "Via Kanpur Central (CNB) - Split Ticket",
+                leg1: "NDLS to CNB (Vande Bharat - Seat Avail: 34)",
+                leg2: "CNB to PRYJ (Express - Seat Avail: 110)",
+                totalTime: "6h 30m",
+                saving: "100% Guaranteed Seat vs Direct WL"
+            },
+            {
+                title: "Via Aligarh & Prayagraj Link",
+                leg1: "NDLS to ALJN (Local Exp - 80 seats)",
+                leg2: "ALJN to PRYJ (Superfast - 15 seats)",
+                totalTime: "7h 15m",
+                saving: "Budget + Higher Confirmation"
+            }
+        ];
+
+        // Multi-language support
+        const translations = {
+            hi: {
+                searchTrains: "ट्रेन खोजें",
+                masterList: "मास्टर लिस्ट (Auto-Fill)",
+                splitRoute: "स्मार्ट अल्टरनेट रूट",
+                fromStation: "कहाँ से (From)",
+                toStation: "कहाँ तक (To)",
+                journeyDate: "यात्रा तिथि (Date)",
+                quota: "कोटा (Quota)",
+                searchFast: "सुपर-फास्ट सर्च",
+                tatkalMasterListHeader: "तत्काल ऑटो-फिल मास्टर लिस्ट",
+                masterListSubtext: "यहाँ सेव की गई डिटेल्स बुक करते ही 0.05 सेकंड में भर जाएगी।",
+                addPassenger: "नया पैसेंजर जोड़ें",
+                smartRouteHeader: "AI अल्टरनेटिव रूट और स्प्लिट टिकट फाइंडर",
+                smartRouteSubtext: "अगर सीधी ट्रेन में कंफर्म टिकट नहीं मिल रहा, तो यह AI टूल बीच के स्टेशन से 100% कंफर्म सीट ढूंढ निकालता है।",
+                tatkalTip: "तत्काल टिप: सुबह 10:00 बजे AC और 11:00 बजे Non-AC टिकट खुलता है। अपनी मास्टर लिस्ट पहले से तैयार रखें!",
+                recentSimulations: "हाल के बुकिंग आंकड़े",
+                successRate: "तत्काल सक्सेस रेट",
+                avgTime: "औसत बुकिंग समय",
+                selectPassenger: "मास्टर लिस्ट से पैसेंजर चुनें (Auto-Fill)",
+                startInstantBooking: "1-क्लिक सुपर-फास्ट बुकिंग (3s Test)",
+                addNewPassengerTitle: "नया मास्टर लिस्ट पैसेंजर"
+            },
+            en: {
+                searchTrains: "Search Trains",
+                masterList: "Master List (Auto-Fill)",
+                splitRoute: "Smart Alternate Route",
+                fromStation: "From Station",
+                toStation: "To Station",
+                journeyDate: "Journey Date",
+                quota: "Quota",
+                searchFast: "Super-Fast Search",
+                tatkalMasterListHeader: "Tatkal Auto-Fill Master List",
+                masterListSubtext: "Details saved here are auto-filled in 0.05s during checkout.",
+                addPassenger: "Add Passenger",
+                smartRouteHeader: "AI Alternate Route & Split-Ticket Finder",
+                smartRouteSubtext: "If direct train shows waiting, this AI tool finds 100% confirmed berths via intermediate stations.",
+                tatkalTip: "Tatkal Tip: AC window opens at 10:00 AM, Non-AC at 11:00 AM. Keep your Master List ready!",
+                recentSimulations: "Recent Speed Benchmarks",
+                successRate: "Tatkal Success Rate",
+                avgTime: "Avg Booking Time",
+                selectPassenger: "Select Master List Passenger (Auto-Fill)",
+                startInstantBooking: "1-Click Instant Speed Checkout (3s)",
+                addNewPassengerTitle: "Add New Master List Profile"
+            }
+        };
+
+        window.onload = function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('journeyDate').value = today;
+
+            renderTrainResults(trainData);
+            renderPassengerList();
+            renderAlternateRoutes();
+        };
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('bg-brand-600', 'text-white', 'shadow-md');
+                el.classList.add('text-gray-400');
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+            activeBtn.classList.add('bg-brand-600', 'text-white', 'shadow-md');
+            activeBtn.classList.remove('text-gray-400');
+        }
+
+        function swapStations() {
+            const fromSelect = document.getElementById('fromStation');
+            const toSelect = document.getElementById('toStation');
+            const temp = fromSelect.value;
+            fromSelect.value = toSelect.value;
+            toSelect.value = temp;
+        }
+
+        function renderTrainResults(data) {
+            const container = document.getElementById('trainResultsList');
+            container.innerHTML = '';
+
+            data.forEach((train) => {
+                let seatsHtml = '';
+                for (let cls in train.seats) {
+                    const st = train.seats[cls];
+                    seatsHtml += `
+                        <div class="border ${st.bg} rounded-xl p-3 flex flex-col justify-between cursor-pointer hover:border-brand-500 transition-all" onclick="openBookingModal('${train.name} (${train.number})', '${cls}')">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-sm text-gray-200">${cls}</span>
+                                <span class="text-[10px] font-bold ${st.color} px-1.5 py-0.5 rounded bg-black/40">${st.prob}</span>
+                            </div>
+                            <div class="text-xs font-semibold ${st.color}">${st.status}</div>
+                            <div class="text-[10px] text-gray-400 mt-2 flex items-center justify-between">
+                                <span>⚡ Instant Book</span>
+                                <i class="fa-solid fa-chevron-right text-brand-400"></i>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                const cardHtml = `
+                    <div class="bg-gray-800/60 border border-gray-700/80 hover:border-gray-600 rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col gap-4 transition-all">
+                        <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-gray-700/60 pb-3">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h4 class="font-bold text-base text-white">${train.name}</h4>
+                                    <span class="text-xs font-mono bg-gray-900 border border-gray-700 text-brand-500 px-2 py-0.5 rounded-md">#${train.number}</span>
+                                </div>
+                                <span class="text-xs text-gray-400">Runs On: M T W T F S S</span>
+                            </div>
+                            <div class="text-xs text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-3 py-1 rounded-full w-fit">
+                                <i class="fa-solid fa-gauge-high mr-1"></i> High Tatkal Speed Support
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 text-center bg-gray-900/60 p-3 rounded-xl border border-gray-800/80">
+                            <div>
+                                <div class="font-bold text-sm text-gray-200">${train.depTime}</div>
+                                <div class="text-[11px] text-gray-400 font-medium">${train.from}</div>
+                            </div>
+                            <div class="flex flex-col items-center justify-center">
+                                <span class="text-[10px] text-brand-500 font-mono">${train.duration}</span>
+                                <div class="w-full bg-gray-700 h-0.5 my-1 relative">
+                                    <div class="w-2 h-2 rounded-full bg-brand-500 absolute left-1/2 -top-0.75 -translate-x-1/2"></div>
+                                </div>
+                                <span class="text-[10px] text-gray-500">Direct</span>
+                            </div>
+                            <div>
+                                <div class="font-bold text-sm text-gray-200">${train.arrTime}</div>
+                                <div class="text-[11px] text-gray-400 font-medium">${train.to}</div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            ${seatsHtml}
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        function filterTrains(filterType) {
+            if(filterType === 'CONFIRMED') {
+                const filtered = trainData.map(t => {
+                    let newSeats = {};
+                    for(let cls in t.seats) {
+                        if(t.seats[cls].status.includes('AVAILABLE')) {
+                            newSeats[cls] = t.seats[cls];
+                        }
+                    }
+                    return { ...t, seats: newSeats };
+                }).filter(t => Object.keys(t.seats).length > 0);
+                renderTrainResults(filtered);
+            } else {
+                renderTrainResults(trainData);
+            }
+        }
+
+        function performSearch() {
+            const list = document.getElementById('trainResultsList');
+            list.style.opacity = '0.3';
+            setTimeout(() => {
+                list.style.opacity = '1';
+                renderTrainResults(trainData);
+            }, 250);
+        }
+
+        function savePassengersToStorage() {
+            localStorage.setItem('swiftrail_passengers', JSON.stringify(savedPassengers));
+        }
+
+        function renderPassengerList() {
+            const container = document.getElementById('passengerListContainer');
+            container.innerHTML = '';
+
+            savedPassengers.forEach(p => {
+                const card = `
+                    <div class="bg-gray-900/80 border border-gray-700/70 rounded-xl p-3.5 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center text-brand-500 font-bold text-sm">
+                                ${p.name.charAt(0)}
+                            </div>
+                            <div>
+                                <h5 class="font-bold text-sm text-white">${p.name}</h5>
+                                <div class="text-xs text-gray-400">${p.age} Yrs • ${p.gender} • Berth: <span class="text-amber-400">${p.berth}</span></div>
+                            </div>
+                        </div>
+                        <button onclick="removePassenger(${p.id})" class="text-gray-500 hover:text-red-400 p-2">
+                            <i class="fa-solid fa-trash-can text-sm"></i>
+                        </button>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+
+            const modalSelect = document.getElementById('modalPassengerSelect');
+            if (modalSelect) {
+                modalSelect.innerHTML = savedPassengers.map(p => 
+                    `<option value="${p.id}">${p.name} (${p.age}y, ${p.gender}) - Pref: ${p.berth}</option>`
+                ).join('');
+            }
+        }
+
+        function removePassenger(id) {
+            savedPassengers = savedPassengers.filter(p => p.id !== id);
+            savePassengersToStorage();
+            renderPassengerList();
+        }
+
+        function openAddPassengerModal() {
+            document.getElementById('passengerModal').classList.remove('hidden');
+        }
+
+        function closeAddPassengerModal() {
+            document.getElementById('passengerModal').classList.add('hidden');
+        }
+
+        function saveNewPassenger(e) {
+            e.preventDefault();
+            const name = document.getElementById('pName').value;
+            const age = document.getElementById('pAge').value;
+            const gender = document.getElementById('pGender').value;
+            const berth = document.getElementById('pBerth').value;
+
+            savedPassengers.push({
+                id: Date.now(),
+                name, age, gender, berth,
+                idNum: 'XXXX-' + Math.floor(1000 + Math.random() * 9000)
+            });
+
+            savePassengersToStorage();
+            renderPassengerList();
+            closeAddPassengerModal();
+            e.target.reset();
+        }
+
+        function renderAlternateRoutes() {
+            const container = document.getElementById('alternateRoutesContainer');
+            container.innerHTML = '';
+
+            alternateRoutes.forEach(route => {
+                container.innerHTML += `
+                    <div class="bg-gray-900/80 border border-blue-900/40 rounded-xl p-4 flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-bold text-sm text-blue-400 flex items-center gap-2">
+                                <i class="fa-solid fa-shield-check text-emerald-400"></i>
+                                ${route.title}
+                            </h4>
+                            <span class="text-xs font-mono bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded-full">${route.saving}</span>
+                        </div>
+                        <div class="text-xs text-gray-300 space-y-1 bg-gray-800/50 p-2.5 rounded-lg border border-gray-700/50">
+                            <div><strong class="text-gray-400">Step 1:</strong> ${route.leg1}</div>
+                            <div><strong class="text-gray-400">Step 2:</strong> ${route.leg2}</div>
+                        </div>
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-gray-400">Total Travel Time: <strong class="text-white">${route.totalTime}</strong></span>
+                            <button onclick="openBookingModal('Split Train Route', '2A')" class="bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded-lg font-semibold transition-all">
+                                1-Click Split Booking
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function openBookingModal(trainTitle, classCode) {
+            document.getElementById('modalTrainName').innerText = `${trainTitle} - [${classCode}]`;
+            document.getElementById('bookingModal').classList.remove('hidden');
+            
+            document.getElementById('simulationTerminal').innerHTML = `<div class="text-gray-500">> System Ready. Click 'Start Fast Booking' to test ultra-speed checkout.</div>`;
+            document.getElementById('speedProgressBox').classList.add('hidden');
+            document.getElementById('speedProgressBar').style.width = '0%';
+            document.getElementById('startBookingBtn').disabled = false;
+        }
+
+        function closeBookingModal() {
+            document.getElementById('bookingModal').classList.add('hidden');
+        }
+
+        function runBookingSimulation() {
+            const btn = document.getElementById('startBookingBtn');
+            btn.disabled = true;
+
+            const progressBox = document.getElementById('speedProgressBox');
+            const progressBar = document.getElementById('speedProgressBar');
+            const statusText = document.getElementById('speedStatusText');
+            const timerText = document.getElementById('speedTimeCounter');
+            const terminal = document.getElementById('simulationTerminal');
+
+            progressBox.classList.remove('hidden');
+            terminal.innerHTML = '';
+
+            const logs = [
+                { time: "0.08s", text: "Connecting to IRCTC High-Speed Gate...", bar: "15%" },
+                { time: "0.38s", text: "Master List Auto-Fill: Passenger Data injected in 0.04s", bar: "40%" },
+                { time: "0.85s", text: "Bypassing Captcha via Fast-Neural Engine...", bar: "65%" },
+                { time: "1.40s", text: "Seat Locked! Triggering Instant Auto-UPI Payment...", bar: "85%" },
+                { time: "2.25s", text: "SUCCESS: Ticket Confirmed! PNR Generated: 2419084721", bar: "100%" }
+            ];
+
+            let step = 0;
+            let startTime = Date.now();
+
+            const interval = setInterval(() => {
+                if (step < logs.length) {
+                    const log = logs[step];
+                    statusText.innerText = log.text;
+                    progressBar.style.width = log.bar;
+                    
+                    const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(2);
+                    timerText.innerText = `${elapsedTime}s`;
+
+                    terminal.innerHTML += `<div class="text-emerald-400 font-mono text-xs">> [${log.time}] ${log.text}</div>`;
+                    terminal.scrollTop = terminal.scrollHeight;
+
+                    step++;
+                } else {
+                    clearInterval(interval);
+                    statusText.innerText = "⚡ BOOKING COMPLETED IN RECORD TIME!";
+                    btn.disabled = false;
+                }
+            }, 450);
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'hi' ? 'en' : 'hi';
+            document.getElementById('currentLangLabel').innerText = currentLang === 'hi' ? 'हिंदी' : 'English';
+
+            document.querySelectorAll('[data-key]').forEach(el => {
+                const key = el.getAttribute('data-key');
+                if (translations[currentLang][key]) {
+                    el.innerText = translations[currentLang][key];
+                }
+            });
+        }
+    </script>
+</body>
+</html>
